@@ -8,6 +8,13 @@ Curtailment Rate: 10.00%
   - Available RE: 34652745.66 MWh
   - Generated RE: 31187471.10 MWh
 
+====== Economic Analysis ======
+System LCOE: 0.1956 RMB/kWh (195.59 RMB/MWh)
+Total Annual Cost: 71.84 Billion RMB
+  - CAPEX (Annualized): 52.00 Billion RMB
+  - OPEX (Fixed): 5.74 Billion RMB
+  - Fuel Cost: 14.10 Billion RMB
+
 ====== Validation Results (8760 Hours Real Data) ======
 Total Load: 34652745.66 MWh (Approx)
 Load Shedding: 258522.39 MWh (206 hours)

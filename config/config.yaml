@@ -14,11 +14,11 @@ costs:
     capex: 2900.0      # 元/kW
     opex: 27.0         # 元/kW/年
   thermal:
-    capex: 4800.0      # 元/kW
-    opex: 10.0        # 元/kW/年
+    capex: 4800.0        # 元/kW
+    opex: 10.0           # 元/kW/年
     fuel_cost: 0.185     # 元/kWh (煤耗成本，按 290g/kWh 标煤折算)
   storage:
-    power_capex: 800.0 # 元/kW (功率成本，估算)
+    power_capex: 800.0  # 元/kW (功率成本，估算)
     energy_capex: 750.0 # 元/kWh (容量成本，估算 - 综合单价 950元/kWh @ 4h)
     opex: 60.0          # 元/kW/年
     efficiency: 0.927   # 单程效率 (循环效率 86% 开根号)

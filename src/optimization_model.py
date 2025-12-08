@@ -413,10 +413,49 @@ class RenewableBaseModel:
         # Actual Generation
         wind_gen_t = n.generators_t.p['Wind']
         solar_gen_t = n.generators_t.p['Solar']
+        therm_gen_t = n.generators_t.p['Thermal']
         total_gen_energy = ((wind_gen_t + solar_gen_t) * weights).sum()
+        total_therm_energy = (therm_gen_t * weights).sum()
         
         curtailment_energy = total_avail_energy - total_gen_energy
         curtailment_rate = (curtailment_energy / total_avail_energy * 100) if total_avail_energy > 0 else 0.0
+
+        # --- LCOE Calculation ---
+        costs = self.config['costs']
+        crf, _ = self._get_financial_params()
+        
+        # 1. Annualized CAPEX (Unit: RMB)
+        # Convert kW prices to MW (* 1000)
+        capex_total = (
+            p_wind * costs['wind']['capex'] * 1000 * crf +
+            p_solar * costs['solar']['capex'] * 1000 * crf +
+            p_therm * costs['thermal']['capex'] * 1000 * crf +
+            p_stor * costs['storage']['power_capex'] * 1000 * crf +
+            e_stor * costs['storage']['energy_capex'] * 1000 * crf
+        )
+        
+        # 2. Fixed OPEX (Unit: RMB/year)
+        opex_fixed_total = (
+            p_wind * costs['wind']['opex'] * 1000 +
+            p_solar * costs['solar']['opex'] * 1000 +
+            p_therm * costs['thermal']['opex'] * 1000 +
+            p_stor * costs['storage']['opex'] * 1000
+        )
+        
+        # 3. Variable OPEX (Fuel Cost) (Unit: RMB/year)
+        # fuel_cost is RMB/kWh -> * 1000 -> RMB/MWh
+        fuel_cost_total = total_therm_energy * costs['thermal']['fuel_cost'] * 1000
+        
+        total_annual_cost = capex_total + opex_fixed_total + fuel_cost_total
+        
+        # 4. Total Served Energy (Load - Shedding)
+        # Calculate total load from input data/model
+        load_t = n.loads_t.p_set['External_Load']
+        total_load_demand = (load_t * weights).sum()
+        total_served_energy = total_load_demand - total_shed
+        
+        # 5. LCOE
+        lcoe = total_annual_cost / total_served_energy if total_served_energy > 0 else float('inf')
         
         report = []
         report.append("====== Optimization Results (Typical Day Weighted) ======")
@@ -428,6 +467,18 @@ class RenewableBaseModel:
         report.append(f"Curtailment Rate: {curtailment_rate:.2f}%")
         report.append(f"  - Available RE: {total_avail_energy:.2f} MWh")
         report.append(f"  - Generated RE: {total_gen_energy:.2f} MWh")
+        report.append("")
+        report.append("====== Economic Analysis ======")
+        report.append(f"System LCOE: {lcoe:.4f} RMB/kWh") # Convert to RMB/kWh for display (usually LCOE is RMB/kWh) - Wait, Cost is RMB, Energy is MWh. Cost/MWh. To get RMB/kWh, divide by 1000.
+        # Actually, let's keep it RMB/MWh or convert. RMB/kWh is more common for LCOE.
+        # total_annual_cost (RMB) / total_served_energy (MWh) = RMB/MWh
+        # RMB/MWh / 1000 = RMB/kWh.
+        lcoe_kwh = lcoe / 1000
+        report[-1] = f"System LCOE: {lcoe_kwh:.4f} RMB/kWh ({lcoe:.2f} RMB/MWh)"
+        report.append(f"Total Annual Cost: {total_annual_cost/1e8:.2f} Billion RMB")
+        report.append(f"  - CAPEX (Annualized): {capex_total/1e8:.2f} Billion RMB")
+        report.append(f"  - OPEX (Fixed): {opex_fixed_total/1e8:.2f} Billion RMB")
+        report.append(f"  - Fuel Cost: {fuel_cost_total/1e8:.2f} Billion RMB")
         
         # Save to file
         os.makedirs(os.path.dirname(output_file), exist_ok=True)
@@ -451,7 +502,9 @@ class RenewableBaseModel:
                 'curtailment_rate': float(curtailment_rate),
                 'total_avail_re': float(total_avail_energy),
                 'total_gen_re': float(total_gen_energy),
-                'duration': float(duration)
+                'duration': float(duration),
+                'lcoe_rmb_per_kwh': float(lcoe_kwh),
+                'total_annual_cost_rmb': float(total_annual_cost)
             },
             'costs': { 
                 'wind_capex': self.config['costs']['wind']['capex'],
