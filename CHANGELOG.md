@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.0] - 2025-12-08
+
+### Refactored
+- **Codebase Restructuring**: Complete refactoring of `src/` modules for better modularity.
+- **Utils Module**: Added `src/utils.py` for centralized `ConfigManager` and logging setup.
+- **Model Architecture**: Decomposed `RenewableBaseModel` into smaller, manageable methods.
+
+### Fixed
+- **Constraint Logic**: Fixed critical bug where policy constraints (curtailment, RE share) were skipped due to dimension name mismatches.
+- **Weighting Handling**: Fixed issue with DataFrame weightings causing constraint generation failures.
+- **Import Errors**: Fixed missing imports (e.g., `os`) in optimization module.
+
 ## [1.0.0] - 2025-12-07
 
 ### Added

@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Results
+results/
+*.log
+
+# System
+.DS_Store
+Thumbs.db
