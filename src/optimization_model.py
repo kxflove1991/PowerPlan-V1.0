@@ -4,7 +4,9 @@ import pandas as pd
 import numpy as np
 import xarray as xr
 import linopy
+import json
 from typing import Optional, Dict, Any, Tuple, Union
+
 from src.utils import setup_logger, ConfigManager
 
 logger = setup_logger("OptimizationModel")
@@ -433,6 +435,58 @@ class RenewableBaseModel:
             f.write('\n'.join(report))
             
         logger.info(f"Results exported to {output_file}")
+
+        # --- Export for Visualization ---
+        # 1. JSON Results
+        results_dict = {
+            'capacities': {
+                'Wind': float(p_wind), 
+                'Solar': float(p_solar), 
+                'Thermal': float(p_therm),
+                'Storage_Power': float(p_stor), 
+                'Storage_Energy': float(e_stor)
+            },
+            'metrics': {
+                'load_shedding_mwh': float(total_shed),
+                'curtailment_rate': float(curtailment_rate),
+                'total_avail_re': float(total_avail_energy),
+                'total_gen_re': float(total_gen_energy),
+                'duration': float(duration)
+            },
+            'costs': { 
+                'wind_capex': self.config['costs']['wind']['capex'],
+                'solar_capex': self.config['costs']['solar']['capex'],
+                'thermal_capex': self.config['costs']['thermal']['capex'],
+                'storage_power_capex': self.config['costs']['storage']['power_capex'],
+                'storage_energy_capex': self.config['costs']['storage']['energy_capex']
+            }
+        }
+        
+        json_path = os.path.join(os.path.dirname(output_file), 'optimization_results.json')
+        with open(json_path, 'w') as f:
+            json.dump(results_dict, f, indent=4)
+            
+        # 2. Typical Day Dispatch CSV
+        try:
+            dispatch_df = n.generators_t.p.copy()
+            # Add Load (External_Load is in loads)
+            if 'External_Load' in n.loads_t.p_set.columns:
+                dispatch_df['Load'] = n.loads_t.p_set['External_Load']
+            
+            # Add Storage flows
+            if 'Battery_Discharge' in n.links_t.p0.columns:
+                dispatch_df['Storage_Discharge'] = n.links_t.p0['Battery_Discharge']
+            if 'Battery_Charge' in n.links_t.p1.columns:
+                dispatch_df['Storage_Charge'] = n.links_t.p1['Battery_Charge']
+            if 'Battery_Store' in n.stores_t.e.columns:
+                dispatch_df['Storage_Level'] = n.stores_t.e['Battery_Store']
+                
+            dispatch_path = os.path.join(os.path.dirname(output_file), 'typical_day_dispatch.csv')
+            dispatch_df.to_csv(dispatch_path)
+            logger.info(f"Visualization data exported to {json_path} and {dispatch_path}")
+        except Exception as e:
+            logger.error(f"Failed to export visualization data: {e}")
+
         return {
             'Wind': p_wind, 'Solar': p_solar, 'Thermal': p_therm,
             'Storage_Power': p_stor, 'Storage_Energy': e_stor

@@ -170,6 +170,11 @@ class SystemValidator:
             
         # Export dispatch
         p_df = self.n.generators_t.p.copy()
+        
+        # Add Load
+        if 'External_Load' in self.n.loads_t.p_set.columns:
+            p_df['Load'] = self.n.loads_t.p_set['External_Load']
+            
         if 'Battery_Discharge' in self.n.links_t.p0.columns:
             p_df['Storage_Discharge'] = self.n.links_t.p0['Battery_Discharge']
         if 'Battery_Charge' in self.n.links_t.p1.columns:

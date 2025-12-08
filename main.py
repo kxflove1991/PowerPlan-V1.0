@@ -4,6 +4,7 @@ from src.utils import setup_logger, ConfigManager
 from src.data_processor import process_input_data, process_input_data_typical
 from src.optimization_model import RenewableBaseModel
 from src.validator import SystemValidator
+from src.visualization import Visualizer
 
 logger = setup_logger("Main")
 
@@ -95,6 +96,32 @@ def _append_validation_to_report(val_results, report_path='results/final_report.
         logger.info(f"Validation results appended to {report_path}")
     except Exception as e:
         logger.error(f"Failed to append validation results: {e}")
+
+    # 5. Visualization
+    logger.info("[Step 6] Generating Visualization Figures...")
+    try:
+        viz = Visualizer(output_dir='results/figures')
+        
+        # 1. 8760 Wind/Solar Output
+        viz.plot_re_8760_hourly('results/validation_hourly_dispatch.csv')
+        
+        # 2. Typical Days Clustering (Demonstration with k=4)
+        if os.path.exists('data/Wind_Solar_Power.csv'):
+            viz.plot_typical_days_clustering('data/Wind_Solar_Power.csv', k=4)
+            
+        # 3. Capacity & Cost
+        viz.plot_capacity_and_cost('results/optimization_results.json')
+        
+        # 4. Typical Day Dispatch
+        viz.plot_typical_day_dispatch('results/typical_day_dispatch.csv')
+        
+        # 5. 8760 System Operation
+        viz.plot_8760_system_operation('results/validation_hourly_dispatch.csv')
+        
+        logger.info("Visualization figures generated in results/figures/")
+        
+    except Exception as e:
+        logger.error(f"Visualization failed: {e}")
 
 if __name__ == "__main__":
     main()
