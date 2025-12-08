@@ -1,11 +1,15 @@
-====== Optimization Results ======
-Wind: 8060.34 MW
-Solar: 7141.50 MW
+====== Optimization Results (Typical Day Weighted) ======
+Wind: 6207.86 MW
+Solar: 7356.26 MW
 Thermal: 2640.00 MW
-Storage: 2280.28 MW / 9121.10 MWh (4.0h)
+Storage: 2712.83 MW / 10851.30 MWh (4.0h)
+Load Shedding: 24588.86 MWh
+Curtailment Rate: 10.00%
+  - Available RE: 34652745.66 MWh
+  - Generated RE: 31187471.10 MWh
 
 ====== Validation Results (8760 Hours Real Data) ======
-Total Load: 40221036.04 MWh (Approx)
-Load Shedding: 274981.67 MWh (233 hours)
-Curtailment Rate: 30.74%
-Actual Generation: 27855809.78 MWh
+Total Load: 34652745.66 MWh (Approx)
+Load Shedding: 258522.39 MWh (206 hours)
+Curtailment Rate: 21.34%
+Actual Generation: 27256665.66 MWh

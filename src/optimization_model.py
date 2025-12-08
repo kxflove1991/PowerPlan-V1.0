@@ -206,6 +206,8 @@ class RenewableBaseModel:
 
     def _define_extra_constraints(self, n, snapshots):
         """Callback for PyPSA to add custom constraints."""
+        print("DEBUG: _define_extra_constraints called!")
+        logger.info("Entering _define_extra_constraints...")
         model = n.model
         constraints = self.config['constraints']
         
@@ -259,6 +261,8 @@ class RenewableBaseModel:
             gen_dim = 'Generator'
         elif 'generator' in dims:
             gen_dim = 'generator'
+        elif 'name' in dims:
+            gen_dim = 'name'
             
         if gen_dim:
             try:
@@ -266,11 +270,11 @@ class RenewableBaseModel:
                 gen_solar_t = p_gen.sel({gen_dim: 'Solar'})
                 p_shed = p_gen.sel({gen_dim: 'Load_Shedding'}) if 'Load_Shedding' in n.generators.index else None
             except KeyError as e:
-                logger.warning(f"Could not find Wind/Solar generators in dimension '{gen_dim}': {e}")
-                return
+                logger.error(f"Could not find Wind/Solar generators in dimension '{gen_dim}': {e}")
+                raise RuntimeError("Critical Policy Constraints could not be applied due to missing generators.")
         else:
-            logger.warning(f"Unknown dimension name for generators in {dims}, skipping policy constraints.")
-            return
+            logger.error(f"Unknown dimension name for generators in {dims}, skipping policy constraints.")
+            raise RuntimeError(f"Critical Policy Constraints could not be applied. Unknown dimensions: {dims}")
 
         # Prepare weights
         if isinstance(n.snapshot_weightings, pd.DataFrame):
@@ -334,11 +338,24 @@ class RenewableBaseModel:
         solver = self.config['solver']['name']
         
         try:
-            status = self.n.optimize(solver_name=solver, extra_functionality=self._define_extra_constraints)
+            # Explicitly create model first
+            logger.info("Creating optimization model...")
+            self.n.optimize.create_model()
+            
+            # Add extra constraints manually
+            logger.info("Adding extra constraints...")
+            self._define_extra_constraints(self.n, self.n.snapshots)
+            
+            # Solve
+            logger.info(f"Solving with {solver}...")
+            status = self.n.optimize.solve_model(solver_name=solver)
         except Exception as e:
             logger.warning(f"Optimization failed with {solver} ({e}), retrying with default...")
             try:
-                status = self.n.optimize(extra_functionality=self._define_extra_constraints)
+                # Retry logic: Re-create model to be safe
+                self.n.optimize.create_model()
+                self._define_extra_constraints(self.n, self.n.snapshots)
+                status = self.n.optimize.solve_model()
             except Exception as e2:
                 logger.error(f"Optimization failed completely: {e2}")
                 return "failed"
@@ -347,9 +364,16 @@ class RenewableBaseModel:
         return status
 
     def export_results(self, output_file='results/final_report.txt'):
-        if self.solution_status != "ok" and self.solution_status != "optimal":
-             logger.warning("Optimization not optimal, skipping export.")
-             # But we might still want to see partial results
+        # Fix status check
+        is_optimal = False
+        if isinstance(self.solution_status, str) and (self.solution_status == "ok" or self.solution_status == "optimal"):
+            is_optimal = True
+        elif isinstance(self.solution_status, tuple) and ("ok" in self.solution_status or "optimal" in self.solution_status):
+            is_optimal = True
+            
+        if not is_optimal:
+             logger.warning(f"Optimization not optimal ({self.solution_status}), skipping export.")
+             # But we might still want to see partial results if feasible
              
         n = self.n
         # ... (Export logic similar to before, but using self.config)
@@ -365,12 +389,43 @@ class RenewableBaseModel:
         # Duration
         duration = e_stor / p_stor if p_stor > 0 else 0
         
+        # --- Calculate Operational Metrics (Typical Day Weighted) ---
+        if isinstance(n.snapshot_weightings, pd.DataFrame):
+            weights = n.snapshot_weightings.iloc[:, 0]
+        else:
+            weights = n.snapshot_weightings
+            
+        # 1. Load Shedding
+        if 'Load_Shedding' in n.generators.index:
+            shed_p = n.generators_t.p['Load_Shedding']
+            total_shed = (shed_p * weights).sum()
+        else:
+            total_shed = 0.0
+            
+        # 2. Curtailment
+        # Available
+        wind_avail_t = n.generators_t.p_max_pu['Wind'] * p_wind
+        solar_avail_t = n.generators_t.p_max_pu['Solar'] * p_solar
+        total_avail_energy = ((wind_avail_t + solar_avail_t) * weights).sum()
+        
+        # Actual Generation
+        wind_gen_t = n.generators_t.p['Wind']
+        solar_gen_t = n.generators_t.p['Solar']
+        total_gen_energy = ((wind_gen_t + solar_gen_t) * weights).sum()
+        
+        curtailment_energy = total_avail_energy - total_gen_energy
+        curtailment_rate = (curtailment_energy / total_avail_energy * 100) if total_avail_energy > 0 else 0.0
+        
         report = []
-        report.append("====== Optimization Results ======")
+        report.append("====== Optimization Results (Typical Day Weighted) ======")
         report.append(f"Wind: {p_wind:.2f} MW")
         report.append(f"Solar: {p_solar:.2f} MW")
         report.append(f"Thermal: {p_therm:.2f} MW")
         report.append(f"Storage: {p_stor:.2f} MW / {e_stor:.2f} MWh ({duration:.1f}h)")
+        report.append(f"Load Shedding: {total_shed:.2f} MWh")
+        report.append(f"Curtailment Rate: {curtailment_rate:.2f}%")
+        report.append(f"  - Available RE: {total_avail_energy:.2f} MWh")
+        report.append(f"  - Generated RE: {total_gen_energy:.2f} MWh")
         
         # Save to file
         os.makedirs(os.path.dirname(output_file), exist_ok=True)

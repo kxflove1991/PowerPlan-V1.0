@@ -178,6 +178,7 @@ def _process_load_data(load_path: str, target_index: pd.DatetimeIndex) -> Option
             
         full_year_load.append(val)
         
+    # Input data is assumed to be in kW, convert to MW
     load_mw = np.array(full_year_load) / 1000.0
     return load_mw
 

@@ -89,15 +89,17 @@ class SystemValidator:
               
         # Thermal
         therm_min_load = self.config['constraints']['thermal']['min_load_rate']
+        fuel_cost = self.config['costs']['thermal']['fuel_cost'] * 1000  # Convert to 元/MWh
         n.add("Generator", "Thermal",
               bus="Base_Bus",
               p_nom=capacities['Thermal'],
               p_min_pu=therm_min_load,
-              marginal_cost=100)
+              marginal_cost=fuel_cost)
               
         # Storage
         eff = self.config['costs']['storage'].get('efficiency', 0.95)
-        stor_p_nom = capacities['Storage_Power'] / eff if eff > 0 else 0
+        # capacities['Storage_Power'] is already the optimized p_nom (Battery side capacity)
+        stor_p_nom = capacities['Storage_Power']
         
         n.add("Link", "Battery_Discharge",
               bus0="Battery_Bus",
