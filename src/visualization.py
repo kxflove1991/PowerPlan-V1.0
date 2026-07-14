@@ -187,7 +187,7 @@ class Visualizer:
 
     def plot_typical_day_dispatch(self, dispatch_path: str, filename: str = 'typical_day_dispatch.png'):
         if not os.path.exists(dispatch_path): return
-        df = pd.read_csv(dispatch_path, index_col=0, parse_dates=True)
+        df = pd.read_csv(dispatch_path, index_col=0)
         if len(df) > 48: plot_df = df.iloc[:48]
         else: plot_df = df
         

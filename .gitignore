@@ -1,13 +1,22 @@
 # Python
 __pycache__/
-*.pyc
+*.py[cod]
 *.pyo
 *.pyd
+*.egg-info/
+.venv/
+venv/
 
 # Results
 results/
 *.log
+*.png
+*.jpg
 
-# System
+# IDE
+.vscode/
+.idea/
+
+# OS
 .DS_Store
 Thumbs.db

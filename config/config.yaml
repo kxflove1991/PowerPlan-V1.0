@@ -3,8 +3,15 @@
 # --- 0. 全局设置 ---
 settings:
   typical_days_per_month: 1 # 每月典型日数量 (1 或 3)
+  allow_suboptimal_export: false # 是否允许导出非最优/不可行解（调试用）
+  strict_validation: false # 校验约束不满足时是否中断程序（false 仅记录 warning）
 
-# --- 1. 技经参数 (请根据您的 docx 文件更新此处) ---
+# --- 1. 财务参数 ---
+financial:
+  discount_rate: 0.05 # 折现率
+  lifetime_years: 20  # 项目寿命（年）
+
+# --- 2. 技经参数 (请根据您的 docx 文件更新此处) ---
 # 注意: 以下造价单位为 元/kW，但在模型内部会自动转换为 元/MW (x1000) 以适配 PyPSA 标准
 costs:
   wind:
@@ -23,7 +30,12 @@ costs:
     opex: 60.0          # 元/kW/年
     efficiency: 0.927   # 单程效率 (循环效率 86% 开根号)
 
-# --- 2. 系统约束条件 ---
+# --- 3. 惩罚成本参数 ---
+penalties:
+  load_shedding: 100000.0 # 元/MWh (缺电惩罚，用于保障供电可靠性)
+  curtailment: 100.0      # 元/MWh (弃电惩罚成本，用于激励减少弃电)
+
+# --- 4. 系统约束条件 ---
 constraints:
   penalties:
     enable_curtailment_penalty: true # 是否启用弃电惩罚
@@ -32,7 +44,7 @@ constraints:
   transmission:
     voltage_level: 800 # kV
     # 外送通道容量 (MW)
-    capacity: 8000     
+    capacity: 8000
     min_utilization_hours: 4000 # 放宽以便优化
     min_re_share: 0.50 # 外送新能源占比
     max_curtailment_rate: 0.10 # 弃电率 <= 10%
@@ -40,7 +52,7 @@ constraints:
 
   storage:
     min_duration: 4.0    # 固定 4 小时
-    max_duration: 4.0    
+    max_duration: 4.0
     min_capacity_ratio: 0.15 # 储能功率 >= 15% 新能源装机
     max_capacity_ratio: 0.20 # 储能功率 <= 20% 新能源装机
     # 自动优化容量 (移除强制固定)
@@ -48,10 +60,10 @@ constraints:
     power_capacity_max: .inf
     energy_capacity_min: 0
     energy_capacity_max: .inf
-    
+
   thermal:
     min_load_rate: 0.20      # 20% 深调能力
-    unit_sizes: [660, 1000] 
+    unit_sizes: [660, 1000]
     capacity_min: 2640       # 强制配置 2640 MW
     capacity_max: 2640       # 锁定火电
 
@@ -63,7 +75,7 @@ constraints:
       capacity_min: 0
       capacity_max: .inf     # 自动优化
 
-# --- 3. 求解器设置 ---
+# --- 5. 求解器设置 ---
 solver:
   name: highs # 推荐使用 highspy (pip install highspy), glpk 或 gurobi
   options:
